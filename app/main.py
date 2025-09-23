@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from .database import database
 from .api.ai_recommendations import router as ai_recommendations_router
+from .api.matches import router as matches_router
 
 # 加载环境变量
 load_dotenv()
@@ -27,6 +28,7 @@ app.add_middleware(
 
 # 注册API路由
 app.include_router(ai_recommendations_router, prefix="/api", tags=["AI Recommendations"])
+app.include_router(matches_router, prefix="/api", tags=["Matches"])
 
 # 根路径
 @app.get("/")
