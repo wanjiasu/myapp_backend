@@ -14,9 +14,10 @@ app = FastAPI(
 )
 
 # 配置CORS中间件，允许Next.js前端访问
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js默认端口
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
