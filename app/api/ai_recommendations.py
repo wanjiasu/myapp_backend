@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any
+from datetime import datetime, timedelta
 from ..database import get_database, Database
 
 router = APIRouter()
@@ -12,8 +13,14 @@ def get_ai_recommendations(db: Database = Depends(get_database)):
     - 比赛是否推荐 = 1
     - 推荐指数前3条
     - 平均赔率不为空
+    - 比赛时间：今天下午到明天24点
     """
     try:
+        # 计算时间范围：今天下午12点到明天24点
+        now = datetime.now()
+        today_noon = now.replace(hour=12, minute=0, second=0, microsecond=0)
+        tomorrow_end = (now + timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999)
+        
         query = """
         SELECT 
             league_name,
@@ -27,11 +34,13 @@ def get_ai_recommendations(db: Database = Depends(get_database)):
         FROM ai_eval 
         WHERE 比赛是否推荐 = 1 
         AND 平均赔率 IS NOT NULL 
+        AND fixture_date >= %s
+        AND fixture_date <= %s
         ORDER BY 推荐指数 DESC 
         LIMIT 3
         """
         
-        results = db.fetch_all(query)
+        results = db.fetch_all(query, (today_noon, tomorrow_end))
         
         if not results:
             return []
