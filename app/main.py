@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from .database import database
+from .api.ai_recommendations import router as ai_recommendations_router
 
 # 加载环境变量
 load_dotenv()
@@ -22,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 注册API路由
+app.include_router(ai_recommendations_router, prefix="/api", tags=["AI Recommendations"])
 
 # 根路径
 @app.get("/")
