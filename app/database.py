@@ -15,6 +15,7 @@ class Database:
         """创建数据库连接"""
         if self.connection is None or self.connection.closed:
             try:
+                # 使用后端数据库配置
                 self.connection = psycopg2.connect(
                     host=os.getenv("POSTGRES_HOST"),
                     port=os.getenv("POSTGRES_PORT", "5432"),

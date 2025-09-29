@@ -1,9 +1,15 @@
 import logging
 import os
+import psycopg2
+import psycopg2.extras
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 import asyncio
 from ..database import get_database
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -131,14 +137,29 @@ class TelegramService:
         )
 
     async def get_all_chat_ids(self):
-        """从数据库获取所有绑定的chat_id"""
+        """从用户数据库获取所有绑定的chat_id（临时连接FRONT_DATABASE_URL）"""
+        connection = None
         try:
-            query = "SELECT telegram_chat_id FROM telegram_binding"
-            results = self.database.fetch_all(query)
-            return [row['telegram_chat_id'] for row in results]
+            # 临时连接到用户数据库
+            front_db_url = os.getenv("FRONT_DATABASE_URL")
+            if not front_db_url:
+                logger.error("FRONT_DATABASE_URL 环境变量未设置")
+                return []
+            
+            connection = psycopg2.connect(front_db_url)
+            connection.autocommit = True
+            
+            with connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute("SELECT telegram_chat_id FROM telegram_binding")
+                results = cursor.fetchall()
+                return [row['telegram_chat_id'] for row in results]
+                
         except Exception as e:
             logger.error(f"获取chat_id列表失败: {e}")
             return []
+        finally:
+            if connection and not connection.closed:
+                connection.close()
 
     async def broadcast_to_all_users(self, message: str) -> int:
         """向所有用户广播消息"""
