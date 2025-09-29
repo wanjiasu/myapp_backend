@@ -1,8 +1,9 @@
 import logging
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 import asyncio
+from ..database import get_database
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ class TelegramService:
         self.site_url = os.getenv('SITE_URL', 'http://localhost:3000')
         self.bot_instance = None
         self.application = None
+        self.database = get_database()
         
     async def initialize(self):
         """初始化 Telegram bot"""
@@ -24,6 +26,7 @@ class TelegramService:
         
         # 添加处理器
         self.application.add_handler(CommandHandler("start", self.start_command))
+        self.application.add_handler(CommandHandler("broadcast", self.handle_broadcast_command))
         self.application.add_handler(CallbackQueryHandler(self.button_callback))
         
         return True
@@ -108,6 +111,58 @@ class TelegramService:
         except Exception as e:
             logger.error(f"发送绑定成功消息失败: {e}")
             return False
+
+    async def handle_broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """处理/broadcast命令"""
+        # 获取命令后的参数作为广播内容
+        broadcast_content = ' '.join(context.args) if context.args else ""
+        
+        if not broadcast_content:
+            await update.message.reply_text("❌ 广播内容不能为空！\n使用方法：/broadcast 您要广播的内容")
+            return
+        
+        # 执行广播
+        success_count = await self.broadcast_to_all_users(broadcast_content)
+        
+        # 回复发送结果
+        await update.message.reply_text(
+            f"📢 广播消息已发送！\n"
+            f"✅ 成功发送给 {success_count} 个用户"
+        )
+
+    async def get_all_chat_ids(self):
+        """从数据库获取所有绑定的chat_id"""
+        try:
+            query = "SELECT telegram_chat_id FROM telegram_binding"
+            results = self.database.fetch_all(query)
+            return [row['telegram_chat_id'] for row in results]
+        except Exception as e:
+            logger.error(f"获取chat_id列表失败: {e}")
+            return []
+
+    async def broadcast_to_all_users(self, message: str) -> int:
+        """向所有用户广播消息"""
+        chat_ids = await self.get_all_chat_ids()
+        success_count = 0
+        
+        for chat_id in chat_ids:
+            try:
+                await self.bot_instance.send_message(
+                    chat_id=int(chat_id),
+                    text=f"📢 系统广播\n\n{message}"
+                )
+                success_count += 1
+                logger.info(f"成功向用户 {chat_id} 发送广播消息")
+                
+                # 添加小延迟避免触发Telegram的速率限制
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"向用户 {chat_id} 发送广播消息失败: {e}")
+                continue
+        
+        logger.info(f"广播完成，成功发送给 {success_count}/{len(chat_ids)} 个用户")
+        return success_count
 
     async def start_polling(self):
         """启动 bot 轮询"""
