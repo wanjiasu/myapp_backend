@@ -39,7 +39,7 @@ def get_ai_recommendations(
         FROM ai_eval 
         WHERE 比赛是否推荐 = 1 
         AND 平均赔率 IS NOT NULL 
-        AND fixture_date >= NOW()
+        AND fixture_date >= %s
         AND fixture_date <= %s
         AND reason_dict IS NOT NULL
         ORDER BY 推荐指数 DESC 
